@@ -21,7 +21,7 @@ function compare()  {
     ret=0
     tempfile=$(mktemp)
     ./sequential 1 < sample.input &> $tempfile
-    ./parallel 1 < sample.input 2>&1 | diff --side-by-side - $tempfile
+    ./parallel$1 1 < sample.input 2>&1 | diff --side-by-side - $tempfile
     ret=$?
     rm $tempfile
     return $ret
