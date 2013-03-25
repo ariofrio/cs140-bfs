@@ -136,7 +136,7 @@ void BFS::run(int root) {
 }
 
 void BFS::process_queue(list_pair &queue, list_pair &next, int grainsize, int level) {
-  if(queue.size() <= grainsize) {
+  if(queue.size() <= grainsize || queue.size() <= 1) {
     for(list_pair::iterator edge = queue.begin();
         edge != queue.end(); edge++) {
       int node = edge->second;
