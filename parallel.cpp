@@ -270,7 +270,7 @@ void BFS::validate_bfs_edge_level(int child, int parent) {
 void BFS::validate_graph_edge_level(int child, int parent) {
   int child_level = node_level[child];
   int parent_level = node_level[parent];
-  if(child_level == -1 && parent_level == -1) return;
+  if(parent_level == -1) return;
   if(child_level - parent_level > 1) {
     cerr << "FAILED: node " << child << " has parent " << parent <<
       " with level " << parent_level << " but has level " << child_level <<
