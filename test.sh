@@ -41,13 +41,13 @@ correct=0
 
 function compare()  {
   section "$2"
-  for test in tests/*; do
-    error=$(bash -c "./parallel$1 0 < $test" 2>&1 1>/dev/null)
-    test="./parallel$1 0 < $test"
+  for file in tests/*; do
+    error=$(bash -c "./parallel$1 0 < $file" 2>&1 1>/dev/null)
+    test="./parallel$1 0 < $file"
     [ "$error" ] && report_incorrect || report_correct
 
-    error=$(bash -c "./parallel$1 1 < $test" 2>&1 1>/dev/null)
-    test="./parallel$1 1 < $test"
+    error=$(bash -c "./parallel$1 1 < $file" 2>&1 1>/dev/null)
+    test="./parallel$1 1 < $file"
     [ "$error" ] && report_incorrect || report_correct
   done > >(indent)
 }
