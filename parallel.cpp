@@ -4,6 +4,7 @@
 #include <iostream>
 #include <cstdio>
 #include <vector>
+#include <deque>
 #include <list>
 #include <set>
 using namespace std;
@@ -90,7 +91,7 @@ public:
 
   vector<int> node_level;
   vector<int> node_parent;
-  vector<bool> node_queued;
+  deque<bool> node_queued; // vector<bool> is specialized and causes data races
   void run();
   void print();
   bool validate();
