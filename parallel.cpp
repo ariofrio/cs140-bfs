@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <iostream>
 #include <cstdio>
+#include <cmath>
 #include <vector>
 #include <deque>
 #include <list>
@@ -110,6 +111,10 @@ private:
 #elif method == 1
   void process_queue(list_pair &queue, list_pair &next, 
       int grainsize, int level);
+#elif method == 2
+  void process_queue(list_pair &queue, list_pair &next, int grainsize,
+      int level, int strands, int first_strand, int last_strand);
+  int count_strands(int grainsize, int size);
 #endif
 };
 
@@ -187,12 +192,63 @@ void BFS::process_queue(list_pair &queue, list_pair &next, int grainsize, int le
 }
 
 #elif method == 2
-    process_queue(grainsize);
+void BFS::run() {
+  list_pair queue, next;
+  queue.push_back(make_pair(-1, root));
+  node_queued[root] = true;
+  for(int level=0; !queue.empty(); level++) {
+    int grainsize = min((long unsigned) 2048,
+        queue.size() / (8*cilk::current_worker_count()));
+    int strands = count_strands(grainsize, queue.size());
+    process_queue(queue, next, grainsize, level, strands, 0, strands-1);
+    queue.swap(next);
+    next.clear();
+  }
+}
 
-void BFS::process_queue(int step,
-    list_pair::iterator begin,
-    list_pair::iterator end) {
-  if(begin == end) {
+int BFS::count_strands(int grainsize, int size) {
+  if(size <= grainsize || size <= 1) {
+    return 1;
+  } else {
+    return count_strands(grainsize, size/2) +
+      count_strands(grainsize, size - size/2);
+  }
+}
+
+void BFS::process_queue(list_pair &queue, list_pair &next, int grainsize,
+    int level, int strands, int first_strand, int last_strand) {
+  if(first_strand == last_strand) {
+    list_pair::iterator edge = queue.begin();
+    for(int i=0; i<first_strand; i++) edge++;
+    while(edge != queue.end()) {
+      int node = edge->second;
+      node_level[node] = level;
+      node_parent[node] = edge->first;
+      for(int i=0; i<graph.degree(node); i++) {
+        int neighbor = graph.neighbor(node, i);
+        if(!node_queued[neighbor]) {
+          node_queued[neighbor] = true;
+          next.push_back(make_pair(node, neighbor));
+        }
+      }
+      for(int i=0; i<strands && edge != queue.end(); i++) edge++;
+    }
+  } else {
+    // Find the middle: NOOP.
+    // Split the queue: NOOP.
+
+    // Run the job!
+    int middle_strand = (first_strand + last_strand) / 2;
+    list_pair left_next, right_next;
+    cilk_spawn process_queue(queue, left_next, grainsize, level, 
+        strands, first_strand, middle_strand);
+    /*      */ process_queue(queue, right_next, grainsize, level,
+        strands, middle_strand + 1, last_strand);
+    cilk_sync;
+
+    // Join the queues.
+    next.splice(next.end(), left_next);
+    next.splice(next.end(), right_next);
   }
 }
 #endif

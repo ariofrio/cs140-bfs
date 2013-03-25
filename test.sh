@@ -46,7 +46,7 @@ function compare()  {
     test="./parallel$1 0 < $file"
     [ "$error" ] && report_incorrect || report_correct
 
-    line=$(( $RANDOM * $(wc -l < $file) / 32767 ))
+    line=$(( $RANDOM * $(wc -l < $file) / 32767 + 1 ))
     root=$(sed -n "${line}p" < $file | awk "{print \$$(( $RANDOM * 2 / 32767 + 1 ))}")
     error=$(bash -c "./parallel$1 $root < $file" 2>&1 1>/dev/null)
     test="./parallel$1 $root < $file"
@@ -56,7 +56,7 @@ function compare()  {
 
 compare 0 "Serial"
 compare 1 "Naive linked list"
-#compare 2 "Smart linked list"
+compare 2 "Smart linked list"
 
 echo
 if [ $incorrect -gt 0 ]; then

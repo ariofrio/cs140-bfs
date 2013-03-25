@@ -1,4 +1,4 @@
-OBJS=sequential parallel0 parallel1
+OBJS=sequential parallel0 parallel1 parallel2
 
 all: $(OBJS) rmat rmat_matlab
 
