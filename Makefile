@@ -1,9 +1,15 @@
-OBJS=sequential parallel
+OBJS=sequential parallel0 parallel1
 
 all: $(OBJS)
 
-parallel: parallel.cpp
-	cilk++ -fcilkscreen -o $@ $<
+parallel0: parallel.cpp
+	cilk++ -Dmethod=0 -fcilkscreen -o $@ $< -lcilkutil
+
+parallel1: parallel.cpp
+	cilk++ -Dmethod=1 -fcilkscreen -o $@ $< -lcilkutil
+
+parallel2: parallel.cpp
+	cilk++ -Dmethod=2 -fcilkscreen -o $@ $< -lcilkutil
 
 clean:
 	rm -f $(OBJS)
