@@ -287,12 +287,12 @@ void BFS::validate_graph_edges_in_bfs(int parent) {
   if(checked[parent]) return;
   for(int i=0; i<graph.degree(parent); i++) {
     int node = graph.neighbor(parent, i);
-    if(node_parent[node] == -1 && node_level[node] == -1) {
+    if((node != root && node_parent[node] == -1) && node_level[node] == -1) {
       cerr << "FAILED: node " << node << " is reachable in the original " <<
         "graph through parent node " << parent << " but no parent or level information " <<
         "was found in the BFS tree" << endl;
       validation_failed = true;
-    } else if(node_parent[node] == -1) {
+    } else if(node != root && node_parent[node] == -1) {
       cerr << "FAILED: node " << node << " is reachable in the original " <<
         "graph through parent node " << parent << " but no parent information " <<
         "was found in the BFS tree" << endl;
