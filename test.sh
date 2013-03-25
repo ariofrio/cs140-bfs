@@ -45,6 +45,10 @@ function compare()  {
     error=$(bash -c "./parallel$1 0 < $test" 2>&1 1>/dev/null)
     test="./parallel$1 0 < $test"
     [ "$error" ] && report_incorrect || report_correct
+
+    error=$(bash -c "./parallel$1 1 < $test" 2>&1 1>/dev/null)
+    test="./parallel$1 1 < $test"
+    [ "$error" ] && report_incorrect || report_correct
   done > >(indent)
 }
 

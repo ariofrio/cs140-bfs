@@ -115,6 +115,7 @@ private:
 #if method == 0
 void BFS::run() {
   queue.push_back(make_pair(-1, root));
+  node_queued[root] = true;
   for(int level=0; !queue.empty(); level++) {
     for(list_pair::iterator edge = queue.begin();
         edge != queue.end(); edge++) {
@@ -137,6 +138,7 @@ void BFS::run() {
 void BFS::run() {
   list_pair queue, next;
   queue.push_back(make_pair(-1, root));
+  node_queued[root] = true;
   for(int level=0; !queue.empty(); level++) {
     int grainsize = min((long unsigned) 2048,
         queue.size() / (8*cilk::current_worker_count()));
