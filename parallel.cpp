@@ -92,6 +92,7 @@ public:
   vector<int> node_parent;
   vector<bool> node_queued;
   void run();
+  void print();
   bool validate();
 
 private:
@@ -322,9 +323,27 @@ void BFS::validate_bfs_edge_in_graph(int node, int parent) {
   }
 }
 
+void BFS::print() {
+  int levels = *max_element(node_level.begin(), node_level.end()) + 1;
+  int nodes = node_level.size() -
+    count(node_level.begin(), node_level.end(), -1);
+  cout << "Search reached "
+    << levels << " levels and "
+    << nodes << " vertices" << endl;
+  for(int i=0; i<levels; i++) {
+    cout << "level " << i << " vertices: " <<
+      count(node_level.begin(), node_level.end(), i) << endl;
+  }
+  printf("\n  vertex parent  level\n");
+  for(int i=0; i<node_level.size(); i++) {
+    printf("%6d%7d%7d\n", i, node_parent[i], node_level[i]);
+  }
+  cout << endl;
+}
+
 int cilk_main(int argc, char** argv) {
-  if(argc != 2) {
-    cerr << "Usage: ./parallel NODE" << endl;
+  if(argc != 2 && argc != 3) {
+    cerr << "Usage: ./parallel NODE [-v]" << endl;
     return 1;
   }
   int node = atoi(argv[1]);
@@ -339,6 +358,10 @@ int cilk_main(int argc, char** argv) {
   bfs.run();
   cv.stop();
   cv.dump("parallel.profile");
+
+  if(argc == 3 && strcmp(argv[2], "-v") == 0) {
+    bfs.print();
+  }
 
   bool success = bfs.validate();
   if(success) {

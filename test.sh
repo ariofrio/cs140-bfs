@@ -1,12 +1,5 @@
 #!/bin/env bash
 
-section() {
-  echo
-  tput setaf 8
-  echo "$@"
-  tput sgr0
-}
-
 indent() {
   c='s/^/  /'
   case $(uname) in
@@ -15,20 +8,77 @@ indent() {
   esac
 }
 
-function compare()  {
-  section "./parallel$1 1 < sample.input"
-  if [ 1 ]; then
-    ret=0
-    tempfile=$(mktemp)
-    ./sequential 1 < sample.input &> $tempfile
-    ./parallel$1 1 < sample.input 2>&1 | diff --side-by-side - $tempfile
-    ret=$?
-    rm $tempfile
-    return $ret
-  fi > >(indent)
+report_correct() {
+  correct=$((correct + 1))
+  echo -n '✓ '
+  tput setaf 2;
+  echo $test
+  tput sgr0
+  [ "$error" ] && echo "$error" | indent
+  return 0
 }
 
-compare 0
-compare 1
+report_incorrect() {
+  incorrect=$((incorrect + 1))
+  tput setaf 1; tput bold
+  echo -n '✘ '
+  tput sgr0; tput setaf 1
+  echo $test
+  tput sgr0
+  [ "$error" ] && echo "$error" | indent
+  return 0
+}
 
-exit $ret
+section() {
+  echo
+  tput setaf 8
+  echo "$@"
+  tput sgr0
+}
+
+incorrect=0
+correct=0
+
+function compare()  {
+  section "$2"
+  for test in tests/*; do
+    error=$(bash -c "./parallel$1 0 < $test" 2>&1 1>/dev/null)
+    test="./parallel$1 0 < $test"
+    [ "$error" ] && report_incorrect || report_correct
+  done > >(indent)
+}
+
+compare 0 "Serial"
+compare 1 "Naive linked list"
+#compare 2 "Smart linked list"
+
+echo
+if [ $incorrect -gt 0 ]; then
+  tput setaf 1; tput bold
+  echo -n '✘ '
+  tput sgr0; tput setaf 1
+  echo -n 'FAIL'
+  tput sgr0
+else
+  echo -n '✓ '
+  tput setaf 2
+  echo -n 'OK'
+  tput sgr0
+fi
+
+echo -n ' » '
+if [ $correct -gt 0 ]; then
+  tput bold
+  echo -n $correct
+  tput sgr0
+  echo -n ' correct '
+fi
+if [ $incorrect -gt 0 ]; then
+  tput bold
+  echo -n $incorrect
+  tput sgr0
+  echo -n ' incorrect '
+fi
+echo
+
+exit $(( $incorrect ))
