@@ -1,6 +1,6 @@
 OBJS=sequential parallel0 parallel1
 
-all: $(OBJS)
+all: $(OBJS) rmat rmat_matlab
 
 parallel0: parallel.cpp
 	cilk++ -Dmethod=0 -fcilkscreen -o $@ $< -lcilkutil
@@ -11,8 +11,14 @@ parallel1: parallel.cpp
 parallel2: parallel.cpp
 	cilk++ -Dmethod=2 -fcilkscreen -o $@ $< -lcilkutil
 
+rmat: rmat.c
+	cc -o rmat rmat.c
+
+rmat_matlab: rmat.c
+	cc -DMATLAB -o rmat_matlab rmat.c
+
 clean:
-	rm -f $(OBJS)
+	rm -f $(OBJS) rmat rmat_matlab
 
 .DEFAULT_GOAL=test
 test: all

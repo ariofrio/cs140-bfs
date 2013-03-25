@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <vector>
 #include <list>
+#include <set>
 using namespace std;
 
 typedef list< pair<int, int> > list_pair;
@@ -26,8 +27,9 @@ public:
     return indexes.size();
   }
 
-private:
   vector< pair<int, int> > edges;
+
+private:
   vector<int> neighbors;
   vector<int> indexes;
 
@@ -79,19 +81,27 @@ void Graph::print() {
 class BFS {
 public:
   Graph& graph;
-  BFS(Graph& graph) : graph(graph) {
+  int root;
+  BFS(Graph& graph, int root) : graph(graph), root(root) {
     node_level.resize(graph.size(), -1);
     node_parent.resize(graph.size(), -1);
-    node_todo.resize(graph.size(), false);
+    node_queued.resize(graph.size(), false);
   };
 
   vector<int> node_level;
   vector<int> node_parent;
-  vector<bool> node_todo;
-  void run(int root);
-  void print();
+  vector<bool> node_queued;
+  void run();
+  bool validate();
 
 private:
+  bool validation_failed;
+  void validate_bfs_node_points_root(int node);
+  void validate_bfs_node_points_root(int node, list<int> &offspring);
+  void validate_bfs_edge_level(int child, int parent);
+  void validate_graph_edge_level(int child, int parent);
+  void validate_graph_edges_in_bfs(int parent);
+  void validate_bfs_edge_in_graph(int node, int parent);
 #if method == 0
   list_pair queue;
   list_pair next;
@@ -102,7 +112,7 @@ private:
 };
 
 #if method == 0
-void BFS::run(int root) {
+void BFS::run() {
   queue.push_back(make_pair(-1, root));
   for(int level=0; !queue.empty(); level++) {
     for(list_pair::iterator edge = queue.begin();
@@ -112,8 +122,8 @@ void BFS::run(int root) {
       node_parent[node] = edge->first;
       for(int i=0; i<graph.degree(node); i++) {
         int neighbor = graph.neighbor(node, i);
-        if(!node_todo[neighbor]) {
-          node_todo[neighbor] = true;
+        if(!node_queued[neighbor]) {
+          node_queued[neighbor] = true;
           next.push_back(make_pair(node, neighbor));
         }
       }
@@ -123,7 +133,7 @@ void BFS::run(int root) {
   }
 }
 #elif method == 1
-void BFS::run(int root) {
+void BFS::run() {
   list_pair queue, next;
   queue.push_back(make_pair(-1, root));
   for(int level=0; !queue.empty(); level++) {
@@ -144,9 +154,9 @@ void BFS::process_queue(list_pair &queue, list_pair &next, int grainsize, int le
       node_parent[node] = edge->first;
       for(int i=0; i<graph.degree(node); i++) {
         int neighbor = graph.neighbor(node, i);
-        if(!node_todo[neighbor]) {
+        if(!node_queued[neighbor]) {
+          node_queued[neighbor] = true;
           next.push_back(make_pair(node, neighbor));
-          node_todo[neighbor] = true;
         }
       }
     }
@@ -179,27 +189,137 @@ void BFS::process_queue(int step,
     list_pair::iterator begin,
     list_pair::iterator end) {
   if(begin == end) {
-    queue.
   }
 }
 #endif
 
-void BFS::print() {
-  int levels = *max_element(node_level.begin(), node_level.end()) + 1;
-  int nodes = node_level.size() -
-    count(node_level.begin(), node_level.end(), -1);
-  cout << "Search reached "
-    << levels << " levels and "
-    << nodes << " vertices" << endl;
-  for(int i=0; i<levels; i++) {
-    cout << "level " << i << " vertices: " <<
-      count(node_level.begin(), node_level.end(), i) << endl;
+bool BFS::validate() {
+  set<int> needs_parent;
+  validation_failed = false;
+
+  for(int node=0; node<graph.size(); node++) {
+    int parent = node_parent[node];
+    if(parent == -1) continue;
+
+    validate_bfs_node_points_root(node); // (1)
+    validate_bfs_edge_level(node, parent); // (2)
+    validate_bfs_edge_in_graph(node, parent); // (5)
   }
-  printf("\n  vertex parent  level\n");
-  for(int i=0; i<node_level.size(); i++) {
-    printf("%6d%7d%7d\n", i, node_parent[i], node_level[i]);
+
+  for(vector< pair<int, int> >::iterator it = graph.edges.begin();
+      it != graph.edges.end(); it++) {
+    int parent = it->first;
+    int child = it->second;
+    validate_graph_edge_level(child, parent); // (3)
   }
-  cout << endl;
+
+  validate_graph_edges_in_bfs(root); // (4)
+  return !validation_failed;
+}
+
+// (1) the BFS tree is a tree and does not contain cycles
+void BFS::validate_bfs_node_points_root(int node) {
+  list<int> offspring;
+  validate_bfs_node_points_root(node, offspring);
+}
+
+// Offspring contains one of the current node's children as the last element,
+// one of the current node's grandchildren as the second to last element, etc.
+void BFS::validate_bfs_node_points_root(int node, list<int> &offspring) {
+  static vector<bool> checked;
+  checked.resize(graph.size(), false);
+  
+  if(node == -1 && offspring.back() != root) {
+      cerr << "FAILED: node " << offspring.back() << 
+        " has no parent but is not root (" << root << ")" << endl;
+      validation_failed = true;
+  } else if(node == -1 || checked[node]) {
+    for(list<int>::iterator it = offspring.begin(); it != offspring.end(); it++)
+      checked[*it] = true;
+  } else {
+    list<int>::iterator it = find(offspring.begin(), offspring.end(), node);
+    if(it != offspring.end()) {
+      cerr << "FAILED: found a cycle ";
+      for(; it != offspring.end(); it++) cerr << (*it) << " -> ";
+      cerr << node << endl;
+      validation_failed = true;
+    } else {
+      offspring.push_back(node);
+      validate_bfs_node_points_root(node_parent[node], offspring);
+    }
+  }
+}
+
+// (2) each tree edge connects vertices whose BFS levels differ by exactly one
+void BFS::validate_bfs_edge_level(int child, int parent) {
+  int child_level = node_level[child];
+  int parent_level = node_level[parent];
+  if(child_level - parent_level != 1) {
+    cerr << "FAILED: parent of node " << child << " (level " <<
+      child_level << ") is " << parent << " and has level " << 
+      parent_level << ", expected level " << child_level - 1 << endl;
+    validation_failed = true;
+  }
+}
+
+// (3) every edge in the input list has vertices with levels that differ by at
+// most one or that both are not in the BFS tree
+void BFS::validate_graph_edge_level(int child, int parent) {
+  int child_level = node_level[child];
+  int parent_level = node_level[parent];
+  if(child_level == -1 && parent_level == -1) return;
+  if(child_level - parent_level > 1) {
+    cerr << "FAILED: node " << child << " has parent " << parent <<
+      " with level " << parent_level << " but has level " << child_level <<
+      ", expected level " << parent_level + 1 << " or lower" << endl;
+    validation_failed = true;
+  }
+}
+
+// (4) the BFS tree spans an entire connected component's vertices
+void BFS::validate_graph_edges_in_bfs(int parent) {
+  static vector<bool> checked;
+  checked.resize(graph.size(), false);
+
+  if(checked[parent]) return;
+  for(int i=0; i<graph.degree(parent); i++) {
+    int node = graph.neighbor(parent, i);
+    if(node_parent[node] == -1 && node_level[node] == -1) {
+      cerr << "FAILED: node " << node << " is reachable in the original " <<
+        "graph through parent node " << parent << " but no parent or level information " <<
+        "was found in the BFS tree" << endl;
+      validation_failed = true;
+    } else if(node_parent[node] == -1) {
+      cerr << "FAILED: node " << node << " is reachable in the original " <<
+        "graph through parent node " << parent << " but no parent information " <<
+        "was found in the BFS tree" << endl;
+      validation_failed = true;
+    } else if(node_level[node] == -1) {
+      cerr << "FAILED: node " << node << " is reachable in the original " <<
+        "graph through parent node " << parent << " but no level information " <<
+        "was found in the BFS tree" << endl;
+      validation_failed = true;
+    }
+    checked[parent] = true;
+
+    validate_graph_edges_in_bfs(node);
+  }
+}
+
+// (5) a node and its parent are joined by an edge of the original graph
+void BFS::validate_bfs_edge_in_graph(int node, int parent) {
+  bool found = false;
+  for(int i=0; i<graph.degree(parent); i++) {
+    if(node == graph.neighbor(parent, i)) {
+      found = true;
+      break;
+    }
+  }
+  if(!found) {
+    cerr << "FAILED: parent of node " << node << " is supposedly " <<
+      parent << " but there is no such edge in the original graph" << endl;
+    validation_failed = true;
+  }
 }
 
 int cilk_main(int argc, char** argv) {
@@ -210,18 +330,23 @@ int cilk_main(int argc, char** argv) {
   int node = atoi(argv[1]);
 
   Graph graph;
-  BFS bfs(graph);
+  BFS bfs(graph, node);
   graph.print();
   cout << "Starting vertex: " << node << endl << endl;
 
   cilk::cilkview cv;
   cv.start();
-  bfs.run(node);
+  bfs.run();
   cv.stop();
-
-  bfs.print();
   cv.dump("parallel.profile");
 
-  return 0;
+  bool success = bfs.validate();
+  if(success) {
+    cout << "Results validated successfully" << endl;
+    return 0;
+  } else {
+    cout << "Results were invalid" << endl;
+    return 1;
+  }
 }
 
