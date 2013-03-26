@@ -18,7 +18,7 @@ public:
   void print();
   int degree(int node) {
     if(node == indexes.size() - 1)
-      return indexes.size() - indexes[node];
+      return neighbors.size() - indexes[node];
     else
       return indexes[node+1] - indexes[node];
   }
