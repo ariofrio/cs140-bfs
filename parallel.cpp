@@ -45,6 +45,15 @@ Graph::Graph() {
 }
 
 void Graph::read_edges() {
+  int _, node_count, edge_count;
+  cin >> _ >> node_count >> edge_count;
+  if(_ != 0) {
+    cerr << "Invalid input format: first line should be '0 NODES EDGES'" << endl;
+    exit(1);
+  }
+  indexes.resize(node_count);
+  edges.reserve(edge_count);
+
   while(!cin.eof()) {
     pair<int, int> edge;
     cin >> edge.first;
@@ -55,13 +64,6 @@ void Graph::read_edges() {
 }
 
 void Graph::build_graph() {
-  for(int i=0; i<edges.size(); i++) {
-    if(indexes.size() < edges[i].first+1)
-      indexes.resize(edges[i].first+1);
-    if(indexes.size() < edges[i].second+1)
-      indexes.resize(edges[i].second+1);
-  }
-
   for(int i=0; i<edges.size(); i++)
     indexes.at(edges[i].first)++;
   for(int i=1; i<indexes.size(); i++)
@@ -416,6 +418,7 @@ int cilk_main(int argc, char** argv) {
   cv.start();
   bfs.run();
   cv.stop();
+  cout << "Time: " << cv.accumulated_milliseconds() << endl;
   cv.dump("parallel.profile");
 
   if(argc == 3 && strcmp(argv[2], "-v") == 0) {
