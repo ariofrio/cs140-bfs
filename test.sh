@@ -57,7 +57,7 @@ function compare()  {
       [ "$error" ] && report_incorrect || report_correct
     fi
 
-    line=$(( $RANDOM * $(wc -l < $file) / 32767 + 1 ))
+    line=$(( $RANDOM * ($(wc -l < $file) - 1) / 32767 + 2 ))
     root=$(sed -n "${line}p" < $file | awk "{print \$$(( $RANDOM * 2 / 32767 + 1 ))}")
     error=$(bash -c "./parallel$1 $root < $file" 2>&1 1>/dev/null)
     test="./parallel$1 $root < $file"
