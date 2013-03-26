@@ -96,7 +96,8 @@ public:
   vector<int> node_parent;
   deque<bool> node_queued; // vector<bool> is specialized and causes data races
   void run();
-  void print();
+  void print_statistics();
+  void print_results();
   bool validate();
 
 private:
@@ -384,17 +385,28 @@ void BFS::validate_bfs_edge_in_graph(int node, int parent) {
   }
 }
 
-void BFS::print() {
+void BFS::print_statistics() {
+  cout << "Search reached ";
   int levels = *max_element(node_level.begin(), node_level.end()) + 1;
+  cout << levels << " levels and ";
   int nodes = node_level.size() -
     count(node_level.begin(), node_level.end(), -1);
-  cout << "Search reached "
-    << levels << " levels and "
-    << nodes << " vertices" << endl;
+  cout << nodes << " vertices" << endl;
+
+  double average_degree = 0;
+  for(int i=0; i<node_level.size(); i++)
+    if(node_level[i] != -1) average_degree += graph.degree(i);
+  average_degree /= nodes;
+  cout << "Average degree of reached nodes " <<
+    "(including duplicate edges) is " << average_degree << endl;
+
   for(int i=0; i<levels; i++) {
     cout << "level " << i << " vertices: " <<
       count(node_level.begin(), node_level.end(), i) << endl;
   }
+}
+
+void BFS::print_results() {
   printf("\n  vertex parent  level\n");
   for(int i=0; i<node_level.size(); i++) {
     printf("%6d%7d%7d\n", i, node_parent[i], node_level[i]);
@@ -412,6 +424,10 @@ int cilk_main(int argc, char** argv) {
   Graph graph;
   BFS bfs(graph, node);
   graph.print();
+  if(graph.size() < node+1) {
+    cerr << "The graph does not contain starting vertex " << node << endl;
+    exit(1);
+  }
   cout << "Starting vertex: " << node << endl << endl;
 
   cilk::cilkview cv;
@@ -421,8 +437,13 @@ int cilk_main(int argc, char** argv) {
   cout << "Time: " << cv.accumulated_milliseconds() << endl;
   cv.dump("parallel.profile");
 
-  if(argc == 3 && strcmp(argv[2], "-v") == 0) {
-    bfs.print();
+  if(argc == 3) {
+    cout << endl;
+    if((strcmp(argv[2], "-v") == 0 || strcmp(argv[2], "-vv") == 0))
+      bfs.print_statistics();
+    if(strcmp(argv[2], "-vv") == 0)
+      bfs.print_results();
+    cout << endl;
   }
 
   bool success = bfs.validate();
