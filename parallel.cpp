@@ -30,8 +30,6 @@
 #include <set>
 using namespace std;
 
-typedef list< pair<int, int> > list_pair;
-
 class Graph {
 public:
   Graph(string filename);
@@ -366,7 +364,6 @@ template<class T> void std::swap(bag<T> &a, bag<T> &b) {
   a.swap(b);
 }
 
-typedef bag< pair<int, int> > bag_pair;
 #endif
 
 class BFS {
@@ -374,14 +371,25 @@ public:
   Graph& graph;
   int root;
   BFS(Graph& graph, int root) : graph(graph), root(root) {
+#ifdef arrays
+    node_level = new int[graph.order()];
+    node_parent = new int[graph.order()];
+    fill_n(node_level, graph.order(), -1);
+    fill_n(node_parent, graph.order(), -1);
+#else
     node_level.resize(graph.order(), -1);
     node_parent.resize(graph.order(), -1);
-    node_queued.resize(graph.order(), false);
+#endif
   };
 
+#ifdef arrays
+  ~BFS() { delete[] node_level; delete[] node_parent; }
+  int* node_level;
+  int* node_parent;
+#else
   vector<int> node_level;
   vector<int> node_parent;
-  deque<bool> node_queued; // vector<bool> is specialized and causes data races
+#endif
   void run();
   void print_statistics();
   void print_results();
@@ -396,36 +404,34 @@ private:
   void validate_graph_edges_in_bfs(int parent);
   void validate_bfs_edge_in_graph(int node, int parent);
 #if method == 0
-  list_pair queue;
-  list_pair next;
+  list<int> queue;
+  list<int> next;
 #elif method == 1
-  void process_queue(list_pair &queue, list_pair &next, 
+  void process_queue(list<int> &queue, list<int> &next, 
       int grainsize, int level);
 #elif method == 2
-  void process_queue(list_pair &queue, list_pair &next, int grainsize,
+  void process_queue(list<int> &queue, list<int> &next, int grainsize,
       int level, int strands, int first_strand, int last_strand);
   int count_strands(int grainsize, int size);
 #elif method == 3
-  void process_queue(bag_pair &queue, bag_pair &next, 
+  void process_queue(bag<int> &queue, bag<int> &next, 
       int grainsize, int level);
 #endif
 };
 
 #if method == 0
 void BFS::run() {
-  queue.push_back(make_pair(-1, root));
-  node_queued[root] = true;
+  queue.push_back(root);
+  node_level[root] = 0;
   for(int level=0; !queue.empty(); level++) {
-    for(list_pair::iterator edge = queue.begin();
-        edge != queue.end(); edge++) {
-      int node = edge->second;
-      node_level[node] = level;
-      node_parent[node] = edge->first;
+    for(list<int>::iterator it = queue.begin(); it != queue.end(); it++) {
+      int node = *it;
       for(int i=0; i<graph.degree(node); i++) {
         int neighbor = graph.neighbor(node, i);
-        if(!node_queued[neighbor]) {
-          node_queued[neighbor] = true;
-          next.push_back(make_pair(node, neighbor));
+        if(node_level[neighbor] == -1) {
+          node_level[neighbor] = level + 1;
+          node_parent[neighbor] = node;
+          next.push_back(neighbor);
         }
       }
     }
@@ -435,9 +441,9 @@ void BFS::run() {
 }
 #elif method == 1
 void BFS::run() {
-  list_pair queue, next;
-  queue.push_back(make_pair(-1, root));
-  node_queued[root] = true;
+  list<int> queue, next;
+  queue.push_back(root);
+  node_level[root] = 0;
   for(int level=0; !queue.empty(); level++) {
     int grainsize = min((long unsigned) 2048,
         queue.size() / (8*current_worker_count()));
@@ -447,33 +453,31 @@ void BFS::run() {
   }
 }
 
-void BFS::process_queue(list_pair &queue, list_pair &next, int grainsize, int level) {
+void BFS::process_queue(list<int> &queue, list<int> &next, int grainsize, int level) {
   if(queue.size() <= grainsize || queue.size() <= 1) {
-    for(list_pair::iterator edge = queue.begin();
-        edge != queue.end(); edge++) {
-      int node = edge->second;
-      node_level[node] = level;
-      node_parent[node] = edge->first;
+    for(list<int>::iterator it = queue.begin(); it != queue.end(); it++) {
+      int node = *it;
       for(int i=0; i<graph.degree(node); i++) {
         int neighbor = graph.neighbor(node, i);
-        if(!node_queued[neighbor]) {
-          node_queued[neighbor] = true;
-          next.push_back(make_pair(node, neighbor));
+        if(node_level[neighbor] == -1) {
+          node_level[neighbor] = level + 1;
+          node_parent[neighbor] = node;
+          next.push_back(neighbor);
         }
       }
     }
   } else {
     // Find the middle.
-    list_pair::iterator middle = queue.begin();
+    list<int>::iterator middle = queue.begin();
     advance(middle, queue.size() / 2);
 
     // Split the queue.
-    list_pair left, right;
+    list<int> left, right;
     left.splice(left.end(), queue, queue.begin(), middle);
     right.splice(right.end(), queue);
 
     // Run the job!
-    list_pair right_next;
+    list<int> right_next;
     cilk_spawn process_queue(left, next, grainsize, level);
     /*      */ process_queue(right, right_next, grainsize, level);
     cilk_sync;
@@ -485,9 +489,9 @@ void BFS::process_queue(list_pair &queue, list_pair &next, int grainsize, int le
 
 #elif method == 2
 void BFS::run() {
-  list_pair queue, next;
-  queue.push_back(make_pair(-1, root));
-  node_queued[root] = true;
+  list<int> queue, next;
+  queue.push_back(root);
+  node_level[root] = 0;
   for(int level=0; !queue.empty(); level++) {
     int grainsize = min((long unsigned) 2048,
         queue.size() / (8*current_worker_count()));
@@ -507,23 +511,22 @@ int BFS::count_strands(int grainsize, int size) {
   }
 }
 
-void BFS::process_queue(list_pair &queue, list_pair &next, int grainsize,
+void BFS::process_queue(list<int> &queue, list<int> &next, int grainsize,
     int level, int strands, int first_strand, int last_strand) {
   if(first_strand == last_strand) {
-    list_pair::iterator edge = queue.begin();
-    for(int i=0; i<first_strand; i++) edge++;
-    while(edge != queue.end()) {
-      int node = edge->second;
-      node_level[node] = level;
-      node_parent[node] = edge->first;
+    list<int>::iterator it = queue.begin();
+    for(int i=0; i<first_strand; i++) it++;
+    while(it != queue.end()) {
+      int node = *it;
       for(int i=0; i<graph.degree(node); i++) {
         int neighbor = graph.neighbor(node, i);
-        if(!node_queued[neighbor]) {
-          node_queued[neighbor] = true;
-          next.push_back(make_pair(node, neighbor));
+        if(node_level[neighbor] == -1) {
+          node_level[neighbor] = level + 1;
+          node_parent[neighbor] = node;
+          next.push_back(neighbor);
         }
       }
-      for(int i=0; i<strands && edge != queue.end(); i++) edge++;
+      for(int i=0; i<strands && it!=queue.end(); i++) it++;
     }
   } else {
     // Find the middle: NOOP.
@@ -531,7 +534,7 @@ void BFS::process_queue(list_pair &queue, list_pair &next, int grainsize,
 
     // Run the job!
     int middle_strand = (first_strand + last_strand) / 2;
-    list_pair right_next;
+    list<int> right_next;
     cilk_spawn process_queue(queue, next, grainsize, level, 
         strands, first_strand, middle_strand);
     /*      */ process_queue(queue, right_next, grainsize, level,
@@ -544,9 +547,9 @@ void BFS::process_queue(list_pair &queue, list_pair &next, int grainsize,
 }
 #elif method == 3
 void BFS::run() {
-  bag_pair queue(graph.size_edges()), next(graph.size_edges());
-  queue.insert(make_pair(-1, root));
-  node_queued[root] = true;
+  bag<int> queue(graph.size_edges()), next(graph.size_edges());
+  queue.insert(root);
+  node_level[root] = 0;
   for(int level=0; !queue.empty(); level++) {
     int grainsize = min((long unsigned) 2048,
         queue.size() / (8*current_worker_count()));
@@ -556,27 +559,26 @@ void BFS::run() {
   }
 }
 
-void BFS::process_queue(bag_pair &queue, bag_pair &next, int grainsize, int level) {
+void BFS::process_queue(bag<int> &queue, bag<int> &next, int grainsize, int level) {
   if(queue.size() <= grainsize || queue.size() <= 1) {
-    for(bag_pair::iterator edge = queue.begin(); edge != queue.end(); edge++) {
-      int node = edge->second;
-      node_level[node] = level;
-      node_parent[node] = edge->first;
+    for(bag<int>::iterator it = queue.begin(); it != queue.end(); it++) {
+      int node = *it;
       for(int i=0; i<graph.degree(node); i++) {
         int neighbor = graph.neighbor(node, i);
-        if(!node_queued[neighbor]) {
-          node_queued[neighbor] = true;
-          next.insert(make_pair(node, neighbor));
+        if(node_level[neighbor] == -1) {
+          node_level[neighbor] = level + 1;
+          node_parent[neighbor] = node;
+          next.insert(neighbor);
         }
       }
     }
   } else {
     // Split the queue.
-    bag_pair right_queue(graph.size_edges());
+    bag<int> right_queue(graph.size_edges());
     queue.split(right_queue);
 
     // Run the job!
-    bag_pair right_next(graph.size_edges());
+    bag<int> right_next(graph.size_edges());
     cilk_spawn process_queue(queue, next, grainsize, level);
     /*      */ process_queue(right_queue, right_next, grainsize, level);
     cilk_sync;
@@ -718,29 +720,43 @@ void BFS::validate_bfs_edge_in_graph(int node, int parent) {
 }
 
 void BFS::print_statistics() {
+#ifdef arrays
+  cout << "Search reached ";
+  int levels = *max_element(node_level, node_level + graph.order()) + 1;
+  cout << levels << " levels and ";
+  int nodes = graph.order() -
+    count(node_level, node_level + graph.order(), -1);
+  cout << nodes << " vertices" << endl;
+#else
   cout << "Search reached ";
   int levels = *max_element(node_level.begin(), node_level.end()) + 1;
   cout << levels << " levels and ";
-  int nodes = node_level.size() -
+  int nodes = graph.order() -
     count(node_level.begin(), node_level.end(), -1);
   cout << nodes << " vertices" << endl;
+#endif
 
   double average_degree = 0;
-  for(int i=0; i<node_level.size(); i++)
+  for(int i=0; i<graph.order(); i++)
     if(node_level[i] != -1) average_degree += graph.degree(i);
   average_degree /= nodes;
   cout << "Average degree of reached nodes " <<
     "(including duplicate edges) is " << average_degree << endl;
 
-  for(int i=0; i<levels; i++) {
+#ifdef arrays
+  for(int i=0; i<levels; i++)
+    cout << "level " << i << " vertices: " <<
+      count(node_level, node_level + graph.order(), i) << endl;
+#else
+  for(int i=0; i<levels; i++)
     cout << "level " << i << " vertices: " <<
       count(node_level.begin(), node_level.end(), i) << endl;
-  }
+#endif
 }
 
 void BFS::print_results() {
   printf("\n  vertex parent  level\n");
-  for(int i=0; i<node_level.size(); i++) {
+  for(int i=0; i<graph.order(); i++) {
     printf("%6d%7d%7d\n", i, node_parent[i], node_level[i]);
   }
   cout << endl;
