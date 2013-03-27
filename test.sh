@@ -42,6 +42,7 @@ correct=0
 function compare()  {
   section "$2"
   for file in tests/*; do
+    [ "$file" != "${file%.cache}" ] && continue
     error=$(bash -c "./parallel$1 0 < $file" 2>&1 1>/dev/null)
     test="./parallel$1 0 < $file"
     [ "$error" ] && report_incorrect || report_correct

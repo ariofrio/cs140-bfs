@@ -2,6 +2,7 @@
 #include <cilkview.h>
 #include <algorithm>
 #include <iostream>
+#include <fstream>
 #include <cstdio>
 #include <cmath>
 #include <vector>
@@ -14,7 +15,7 @@ typedef list< pair<int, int> > list_pair;
 
 class Graph {
 public:
-  Graph();
+  Graph(string filename);
   void print();
   int degree(int node) {
     if(node == indexes.size() - 1)
@@ -29,24 +30,66 @@ public:
     return indexes.size();
   }
 
-  vector< pair<int, int> > edges;
 
 private:
   vector<int> neighbors;
   vector<int> indexes;
+  vector< pair<int, int> > edges; // might be empty if cache was used
 
-  void read_edges();
+  void read_cache(istream &file);
+  void write_cache(ofstream &file);
+  void read_edges(istream &file);
   void build_graph();
 };
 
-Graph::Graph() {
-  read_edges();
-  build_graph();
+Graph::Graph(string filename) {
+  if(filename == "-") {
+    read_edges(cin);
+    build_graph();
+  } else {
+    ifstream cache((filename + ".cache").c_str());
+    if(cache) {
+      read_cache(cache);
+    } else {
+      cache.close();
+
+      ifstream file(filename.c_str());
+      read_edges(file);
+      build_graph();
+
+      ofstream cache_out((filename + ".cache").c_str());
+      write_cache(cache_out);
+    }
+  }
 }
 
-void Graph::read_edges() {
+void Graph::read_cache(istream &file) {
+  int neighbor_count;
+  file >> neighbor_count;
+  neighbors.resize(neighbor_count);
+  for(int i=0; i<neighbor_count; i++)
+    file >> neighbors[i];
+
+  int index_count;
+  file >> index_count;
+  indexes.resize(index_count);
+  for(int i=0; i<index_count; i++)
+    file >> indexes[i];
+}
+
+void Graph::write_cache(ofstream &file) {
+  file << neighbors.size() << endl;
+  for(int i=0; i<neighbors.size(); i++)
+    file << neighbors[i] << endl;
+
+  file << indexes.size() << endl;
+  for(int i=0; i<indexes.size(); i++)
+    file << indexes[i] << endl;
+}
+
+void Graph::read_edges(istream &file) {
   int _, node_count, edge_count;
-  cin >> _ >> node_count >> edge_count;
+  file >> _ >> node_count >> edge_count;
   if(_ != 0) {
     cerr << "Invalid input format: first line should be '0 NODES EDGES'" << endl;
     exit(1);
@@ -54,11 +97,11 @@ void Graph::read_edges() {
   indexes.resize(node_count);
   edges.reserve(edge_count);
 
-  while(!cin.eof()) {
+  while(!file.eof()) {
     pair<int, int> edge;
-    cin >> edge.first;
-    cin >> edge.second;
-    if(cin.fail()) break;
+    file >> edge.first;
+    file >> edge.second;
+    if(file.fail()) break;
     edges.push_back(edge);
   }
 }
@@ -69,7 +112,7 @@ void Graph::build_graph() {
   for(int i=1; i<indexes.size(); i++)
     indexes[i] += indexes[i-1];
 
-  neighbors.resize(indexes.back()+1);
+  neighbors.resize(indexes.back());
   
   for(int i=0; i<edges.size(); i++) {
     int index = --indexes.at(edges[i].first);
@@ -79,7 +122,7 @@ void Graph::build_graph() {
 
 void Graph::print() {
   printf("\nGraph has %d vertices and %d edges\n",
-      indexes.size(), edges.size());
+      indexes.size(), neighbors.size());
 }
 
 class BFS {
@@ -269,11 +312,11 @@ bool BFS::validate() {
     validate_bfs_edge_in_graph(node, parent); // (5)
   }
 
-  for(vector< pair<int, int> >::iterator it = graph.edges.begin();
-      it != graph.edges.end(); it++) {
-    int parent = it->first;
-    int child = it->second;
-    validate_graph_edge_level(child, parent); // (3)
+  for(int node=0; node<graph.size(); node++) {
+    for(int i=0; i<graph.degree(node); i++) {
+      int child = graph.neighbor(node, i);
+      validate_graph_edge_level(child, node); // (3)
+    }
   }
 
   validate_graph_edges_in_bfs(root); // (4)
@@ -414,21 +457,34 @@ void BFS::print_results() {
   cout << endl;
 }
 
+
 int cilk_main(int argc, char** argv) {
-  if(argc != 2 && argc != 3) {
-    cerr << "Usage: ./parallel NODE [-v]" << endl;
+  if(argc < 2 || argc > 4) {
+    cerr << "Usage: " << argv[0] << "[FILE] NODE [-v]" << endl;
     return 1;
   }
-  int node = atoi(argv[1]);
 
-  Graph graph;
-  BFS bfs(graph, node);
+  string filename; int node; int verbose = 0;
+  if(argv[1][0] >= '0' && argv[1][0] <= '9') {
+    filename = "-";
+    node = atoi(argv[1]);
+    if(argc == 3 && argv[2][0] == '-' && argv[2][1] == 'v')
+      verbose = strlen(argv[2]) - 1;
+  } else {
+    filename = argv[1];
+    node = atoi(argv[2]);
+    if(argc == 4 && argv[3][0] == '-' && argv[3][1] == 'v')
+      verbose = strlen(argv[3]) - 1;
+  }
+
+  Graph graph(filename);
   graph.print();
   if(graph.size() < node+1) {
     cerr << "The graph does not contain starting vertex " << node << endl;
     exit(1);
   }
   cout << "Starting vertex: " << node << endl << endl;
+  BFS bfs(graph, node);
 
   cilk::cilkview cv;
   cv.start();
@@ -437,12 +493,10 @@ int cilk_main(int argc, char** argv) {
   cout << "Time: " << cv.accumulated_milliseconds() << endl;
   cv.dump("parallel.profile");
 
-  if(argc == 3) {
+  if(verbose >= 1) {
     cout << endl;
-    if((strcmp(argv[2], "-v") == 0 || strcmp(argv[2], "-vv") == 0))
-      bfs.print_statistics();
-    if(strcmp(argv[2], "-vv") == 0)
-      bfs.print_results();
+    bfs.print_statistics();
+    if(verbose >= 2) bfs.print_results();
     cout << endl;
   }
 
