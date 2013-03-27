@@ -1,15 +1,20 @@
-OBJS=sequential parallel0 parallel1 parallel2
+CXX=cilk++
+CXXFLAGS=-lcilkutil
+OBJS=sequential parallel0 parallel1 parallel2 parallel3
 
 all: $(OBJS) rmat rmat_matlab
 
 parallel0: parallel.cpp
-	cilk++ -Dmethod=0  -o $@ $< -lcilkutil
+	$(CXX) -Dmethod=0 -o $@ $< $(CXXFLAGS)
 
 parallel1: parallel.cpp
-	cilk++ -Dmethod=1  -o $@ $< -lcilkutil
+	$(CXX) -Dmethod=1 -o $@ $< $(CXXFLAGS)
 
 parallel2: parallel.cpp
-	cilk++ -Dmethod=2  -o $@ $< -lcilkutil
+	$(CXX) -Dmethod=2 -o $@ $< $(CXXFLAGS)
+
+parallel3: parallel.cpp
+	$(CXX) -Dmethod=3 -o $@ $< $(CXXFLAGS)
 
 rmat: rmat.c
 	cc -o rmat rmat.c
