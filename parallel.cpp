@@ -473,13 +473,12 @@ void BFS::process_queue(list_pair &queue, list_pair &next, int grainsize, int le
     right.splice(right.end(), queue);
 
     // Run the job!
-    list_pair left_next, right_next;
-    cilk_spawn process_queue(left, left_next, grainsize, level);
+    list_pair right_next;
+    cilk_spawn process_queue(left, next, grainsize, level);
     /*      */ process_queue(right, right_next, grainsize, level);
     cilk_sync;
 
     // Join the queues.
-    next.splice(next.end(), left_next);
     next.splice(next.end(), right_next);
   }
 }
@@ -532,15 +531,14 @@ void BFS::process_queue(list_pair &queue, list_pair &next, int grainsize,
 
     // Run the job!
     int middle_strand = (first_strand + last_strand) / 2;
-    list_pair left_next, right_next;
-    cilk_spawn process_queue(queue, left_next, grainsize, level, 
+    list_pair right_next;
+    cilk_spawn process_queue(queue, next, grainsize, level, 
         strands, first_strand, middle_strand);
     /*      */ process_queue(queue, right_next, grainsize, level,
         strands, middle_strand + 1, last_strand);
     cilk_sync;
 
     // Join the queues.
-    next.splice(next.end(), left_next);
     next.splice(next.end(), right_next);
   }
 }

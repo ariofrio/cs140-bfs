@@ -74,7 +74,6 @@ compare 3 "Pennant bags"
 #compare 5 "Bags with accurate split and 128 hopper"
 #compare 6 "Bags with lop split and 128 hopper"
 #compare ... "Each of those, but do not clear() the old queue, which is O(n)"
-#compare ... "Each of those, but don't create more queue/next containers than necessary"
 #compare 10 "Use a dequeue instead of a linked list"
 
 echo
