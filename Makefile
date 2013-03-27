@@ -3,13 +3,13 @@ OBJS=sequential parallel0 parallel1 parallel2
 all: $(OBJS) rmat rmat_matlab
 
 parallel0: parallel.cpp
-	cilk++ -Dmethod=0 -fcilkscreen -o $@ $< -lcilkutil
+	cilk++ -Dmethod=0  -o $@ $< -lcilkutil
 
 parallel1: parallel.cpp
-	cilk++ -Dmethod=1 -fcilkscreen -o $@ $< -lcilkutil
+	cilk++ -Dmethod=1  -o $@ $< -lcilkutil
 
 parallel2: parallel.cpp
-	cilk++ -Dmethod=2 -fcilkscreen -o $@ $< -lcilkutil
+	cilk++ -Dmethod=2  -o $@ $< -lcilkutil
 
 rmat: rmat.c
 	cc -o rmat rmat.c
