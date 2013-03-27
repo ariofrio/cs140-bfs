@@ -577,9 +577,9 @@ void BFS::process_queue(bag_pair &queue, bag_pair &next, int grainsize, int leve
 
     // Run the job!
     bag_pair right_next(graph.size_edges());
-    /*cilk_spawn*/ process_queue(queue, next, grainsize, level);
+    cilk_spawn process_queue(queue, next, grainsize, level);
     /*      */ process_queue(right_queue, right_next, grainsize, level);
-    //cilk_sync;
+    cilk_sync;
 
     // Join the queues.
     next.merge(right_next);
