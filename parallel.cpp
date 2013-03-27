@@ -545,6 +545,7 @@ void BFS::process_queue(list<int> &queue, list<int> &next, int grainsize,
     next.splice(next.end(), right_next);
   }
 }
+
 #elif method == 3
 void BFS::run() {
   bag<int> queue(graph.size_edges()), next(graph.size_edges());
@@ -764,25 +765,43 @@ void BFS::print_results() {
 
 
 int cilk_main(int argc, char** argv) {
-  if(argc < 2 || argc > 4) {
-    cerr << "Usage: " << argv[0] << "[FILE] NODE [-v]" << endl;
+  if(argc > 4) {
+    cerr << "Usage: " << argv[0] << "[FILE] [NODE] [-v]" << endl;
     return 1;
   }
 
   string filename; int node; int verbose = 0;
-  if(argv[1][0] >= '0' && argv[1][0] <= '9') {
+  if(argc == 1) {
+    filename = "-";
+    node = -1;
+  } else if(argv[1][0] >= '0' && argv[1][0] <= '9') {
     filename = "-";
     node = atoi(argv[1]);
     if(argc == 3 && argv[2][0] == '-' && argv[2][1] == 'v')
       verbose = strlen(argv[2]) - 1;
   } else {
-    filename = argv[1];
-    node = atoi(argv[2]);
-    if(argc == 4 && argv[3][0] == '-' && argv[3][1] == 'v')
-      verbose = strlen(argv[3]) - 1;
+    if(argc == 2 && argv[1][0] == '-' && argv[1][1] == 'v') {
+      filename = "-";
+      node = -1;
+      verbose = strlen(argv[1]) - 1;
+    } else {
+      filename = argv[1];
+      if(argc == 3 && argv[2][0] == '-' && argv[2][1] == 'v') {
+        node = -1;
+        verbose = strlen(argv[2]) - 1;
+      } else {
+        node = atoi(argv[2]);
+        if(argc == 4 && argv[3][0] == '-' && argv[3][1] == 'v')
+          verbose = strlen(argv[3]) - 1;
+      }
+    }
   }
 
   Graph graph(filename);
+  if(node == -1)
+    for(node=0; node<graph.order(); node++)
+      if(graph.degree(node) > 5) break;
+
   graph.print();
   if(graph.order() < node+1) {
     cerr << "The graph does not contain starting vertex " << node << endl;
