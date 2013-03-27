@@ -550,8 +550,6 @@ void BFS::run() {
   for(int level=0; !queue.empty(); level++) {
     int grainsize = min((long unsigned) 2048,
         queue.size() / (8*current_worker_count()));
-    cout << "level " << level << " has queue.size()=" << queue.size();
-    cout << " and grain size " << grainsize << endl;
     process_queue(queue, next, grainsize, level);
     queue.swap(next);
     next.clear();
@@ -560,7 +558,6 @@ void BFS::run() {
 
 void BFS::process_queue(bag_pair &queue, bag_pair &next, int grainsize, int level) {
   if(queue.size() <= grainsize || queue.size() <= 1) {
-    cout << "processing...";
     for(bag_pair::iterator edge = queue.begin(); edge != queue.end(); edge++) {
       int node = edge->second;
       node_level[node] = level;
@@ -573,13 +570,10 @@ void BFS::process_queue(bag_pair &queue, bag_pair &next, int grainsize, int leve
         }
       }
     }
-    cout << "DONE" << endl;
   } else {
-    cout << "splitting...";
     // Split the queue.
     bag_pair right_queue(graph.size_edges());
     queue.split(right_queue);
-    cout << "DONE" << endl;
 
     // Run the job!
     bag_pair right_next(graph.size_edges());
