@@ -1,4 +1,4 @@
-CXX=cilk++
+CXX=cilk++ -O3
 CXXFLAGS=-lcilkutil
 OBJS=sequential parallel0 parallel1 parallel2 parallel3
 
